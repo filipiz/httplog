@@ -239,16 +239,16 @@ module HttpLog
           benchmark:     data[:benchmark]
         }
       else
-        {
-          method:           data[:method].to_s.upcase,
-          url:              masked(data[:url]),
-          request_body:     data[:request_body],
-          request_headers:  masked(data[:request_headers].to_h),
-          response_code:    data[:response_code].to_i,
-          response_body:    parsed_body,
-          response_headers: data[:response_headers].to_h,
-          benchmark:        data[:benchmark]
-        }
+        payload = {}
+        payload[:method] = data[:method].to_s.upcase if config.log_request
+        payload[:url] = masked(data[:url]) if config.log_request
+        payload[:request_body] = data[:request_body] if config.log_request && config.log_data
+        payload[:request_headers] = masked(data[:request_headers].to_h) if config.log_request && config.log_headers
+        payload[:response_code] = data[:response_code].to_i if config.log_status
+        payload[:response_body] = parsed_body if config.log_response && config.log_data
+        payload[:response_headers] = data[:response_headers].to_h if config.log_response && config.log_data
+        payload[:benchmark] = data[:benchmark] if config.log_benchmark
+        payload
       end
     end
 

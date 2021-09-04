@@ -60,7 +60,7 @@ module HttpLog
     def log(msg)
       return unless config.enabled
 
-      config.logger.public_send(config.logger_method, config.severity, colorize(prefix + msg.to_s))
+      config.logger.public_send(config.logger_method, config.severity, (config.json_log ? msg : colorize(prefix + msg.to_s)))
     end
 
     def log_connection(host, port = nil)

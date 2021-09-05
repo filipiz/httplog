@@ -246,7 +246,7 @@ module HttpLog
         payload[:request_headers] = masked(data[:request_headers].to_h) if config.log_request && config.log_headers
         payload[:response_code] = data[:response_code].to_i if config.log_status
         payload[:response_body] = parsed_body if config.log_response && config.log_data
-        payload[:response_headers] = data[:response_headers].to_h if config.log_response && config.log_data
+        payload[:response_headers] = data[:response_headers].to_h if config.log_response && config.log_headers
         payload[:benchmark] = data[:benchmark] if config.log_benchmark
         payload
       end

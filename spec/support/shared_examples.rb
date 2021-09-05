@@ -85,8 +85,8 @@ RSpec.shared_examples 'logs JSON' do |adapter_class, gray|
 
     it { expect(result['method']).to eq('POST') }
     it { expect(result['request_body']).to eq(data) }
-    it { expect(result['request_headers']).to be_a(Hash) }
-    it { expect(result['response_headers']).to be_a(Hash) }
+    it { expect(result['request_headers']).to be_nil }
+    it { expect(result['response_headers']).to be_nil }
     it { expect(result['response_code']).to eq(200) }
     it { expect(result['response_body']).to eq(html) }
     it { expect(result['benchmark']).to be_a(Numeric) }
@@ -106,6 +106,51 @@ RSpec.shared_examples 'logs JSON' do |adapter_class, gray|
       it { expect(result['response_body']).to be_nil }
       it { expect(result['benchmark']).to be_a(Numeric) }
     end
+
+    context 'and with headers' do
+      let(:log_headers) { true }
+      it { expect(result['request_headers']).to be_a(Hash) }
+      it { expect(result['response_headers']).to be_a(Hash) }  
+    end
+
+    context 'and without request' do
+      let(:log_request) { false }
+      it { expect(result['method']).to be_nil }
+      it { expect(result['request_headers']).to be_nil }  
+      it { expect(result['request_body']).to be_nil }  
+    end
+
+    context 'and without benchmark' do
+      let(:log_benchmark) { false }
+      it { expect(result['benchmark']).to be_nil }
+    end
+
+    context 'and without response' do
+      let(:log_response) { false }
+      it { expect(result['response_headers']).to be_nil }
+      it { expect(result['response_body']).to be_nil }  
+    end
+
+    context 'and without status' do
+      let(:log_status) { false }
+      it { expect(result['response_code']).to be_nil }
+    end
+
+    context 'and without data' do
+      let(:log_data) { false }
+      it { expect(result['request_body']).to be_nil }
+      it { expect(result['response_body']).to be_nil }  
+    end
+
+
+    # @log_request             = true
+    # @log_headers             = false
+    # @log_data                = true
+    # @log_status              = true
+    # @log_response            = true
+    # @log_benchmark           = true
+
+    # context 'and with response'
   end
 end
 

@@ -13,7 +13,7 @@ describe HttpLog do
   let(:data)    { "foo=#{secret}&bar=foo" }
   let(:params)  { { 'foo' => secret, 'bar' => 'foo:form-data' } }
   let(:html)    { File.read('./spec/support/index.html') }
-  let(:json)    { JSON.parse(log.match(/\[httplog\]\s(.*)/).captures.first) }
+  let(:json)    { JSON.parse("{#{log.match(/\{(.*)/).captures.first}") }
   let(:gray_log) { JSON.parse("{#{log.match(/\{(.*)/).captures.first}") }
 
   # Default configuration
@@ -26,6 +26,7 @@ describe HttpLog do
   let(:log_data)                { HttpLog.configuration.log_data }
   let(:log_connect)             { HttpLog.configuration.log_connect }
   let(:log_benchmark)           { HttpLog.configuration.log_benchmark }
+  let(:log_status)              { HttpLog.configuration.log_status }
   let(:color)                   { HttpLog.configuration.color }
   let(:prefix)                  { HttpLog.configuration.prefix }
   let(:prefix_response_lines)   { HttpLog.configuration.prefix_response_lines }
@@ -50,6 +51,7 @@ describe HttpLog do
       c.log_data              = log_data
       c.log_connect           = log_connect
       c.log_benchmark         = log_benchmark
+      c.log_status            = log_status
       c.color                 = color
       c.prefix                = prefix
       c.prefix_response_lines = prefix_response_lines

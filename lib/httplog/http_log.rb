@@ -26,13 +26,14 @@ module HttpLog
 
     def configure
       yield(configuration)
+      configuration.json_parser ||= ::JSON if configuration.json_log || configuration.url_masked_body_pattern
     end
 
     def call(options = {})
       parse_request(options)
       if config.json_log
         log_json(options)
-      elsif config.graylog
+      elsif config.graylog_formatter
         log_graylog(options)
       elsif config.compact_log
         log_compact(options[:method], options[:url], options[:response_code], options[:benchmark])
@@ -121,22 +122,24 @@ module HttpLog
         raise BodyParsingError, '(not available yet)'
       end
 
-      body = body.to_s if defined?(HTTP::Response::Body) && body.is_a?(HTTP::Response::Body)
-      body = body.dup
+      body_copy = body.dup
+      body_copy = body.to_s if defined?(HTTP::Response::Body) && body.is_a?(HTTP::Response::Body)
+      return nil if body_copy.nil? || body_copy.empty?
 
-      if encoding =~ /gzip/ && body && !body.empty?
+
+      if encoding =~ /gzip/
         begin
-          sio = StringIO.new(body.to_s)
+          sio = StringIO.new(body_copy.to_s)
           gz = Zlib::GzipReader.new(sio)
-          body = gz.read
+          body_copy = gz.read
         rescue Zlib::GzipFile::Error
           log("(gzip decompression failed)")
         end
       end
 
-      result = utf_encoded(body.to_s, content_type)
+      result = utf_encoded(body_copy.to_s, content_type)
 
-      if mask_body && body && !body.empty?
+      if mask_body
         if content_type =~ /json/
           result = begin
                      masked_data config.json_parser.load(result)
@@ -207,8 +210,6 @@ module HttpLog
 
     def log_graylog(data)
       result = json_payload(data)
-
-      result[:short_message] = result.delete(:url)
       begin
         send_to_graylog result
       rescue
@@ -219,7 +220,8 @@ module HttpLog
     end
 
     def send_to_graylog data
-      config.logger.public_send(config.logger_method, config.severity, data)
+      data.compact!
+      config.logger.public_send(config.logger_method, config.severity, config.graylog_formatter.call(data))
     end
 
     def json_payload(data = {})
@@ -260,11 +262,14 @@ module HttpLog
       # in its entirety.
       return (config.filter_parameters.include?(key.downcase) ? PARAM_MASK : msg) if key
 
-      # Otherwise, we'll parse Strings for key=valye pairs...
+      # Otherwise, we'll parse Strings for key=value pairs,
+      # for name="key"\n value...
       case msg
       when *string_classes
         config.filter_parameters.reduce(msg) do |m,key|
-          m.to_s.gsub(/(#{key})=[^&]+/i, "#{key}=#{PARAM_MASK}")
+          scrubbed = m.to_s.encode('UTF-8', invalid: :replace, undef: :replace)
+          scrubbed.to_s.gsub(/(#{key})=[^&]+/i, "#{key}=#{PARAM_MASK}")
+            .gsub(/name="#{key}"\s+\K[\s\w]+/, "#{PARAM_MASK}\r\n") # multi-part Faraday
         end
       # ...and recurse over hashes
       when *hash_classes
@@ -345,7 +350,7 @@ module HttpLog
     end
 
     def log_data_lines(data)
-      data.each_line.with_index do |line, row|
+      data.to_s.each_line.with_index do |line, row|
         if config.prefix_line_numbers
           log("#{row + 1}: #{line.chomp}")
         else

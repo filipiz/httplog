@@ -11,12 +11,22 @@ module Net
       bm = Benchmark.realtime do
         @response = orig_request(req, body, &block)
       end
+      body_stream  = req.body_stream
+      request_body = if body_stream
+                       body_stream.to_s # read and rewind for RestClient::Payload::Base
+                       body_stream.rewind if body_stream.respond_to?(:rewind) # RestClient::Payload::Base has no method rewind
+                       body_stream.read
+                     elsif req.body.nil? || req.body.empty?
+                       body
+                     else
+                       req.body
+                     end
 
       if HttpLog.url_approved?(url) && started?
         HttpLog.call(
           method: req.method,
           url: url,
-          request_body: req.body.nil? || req.body.empty? ? body : req.body,
+          request_body: request_body,
           request_headers: req.each_header.collect,
           response_code: @response.code,
           response_body: @response.body,

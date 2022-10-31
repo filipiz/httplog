@@ -5,7 +5,7 @@ require 'spec_helper'
 describe HttpLog do
   subject { log } # see spec_helper
 
-  let(:secret)  { 'my secret' }
+  let(:secret)  { 'mysecret' }
   let(:host)    { 'localhost' }
   let(:port)    { 9292 }
   let(:path)    { '/index.html' }
@@ -29,10 +29,11 @@ describe HttpLog do
   let(:log_status)              { HttpLog.configuration.log_status }
   let(:color)                   { HttpLog.configuration.color }
   let(:prefix)                  { HttpLog.configuration.prefix }
+  let(:prefix_data_lines)       { HttpLog.configuration.prefix_data_lines }
   let(:prefix_response_lines)   { HttpLog.configuration.prefix_response_lines }
   let(:prefix_line_numbers)     { HttpLog.configuration.prefix_line_numbers }
   let(:json_log)                { HttpLog.configuration.json_log }
-  let(:graylog)                 { HttpLog.configuration.graylog }
+  let(:graylog_formatter)       { HttpLog.configuration.graylog_formatter }
   let(:compact_log)             { HttpLog.configuration.compact_log }
   let(:url_blacklist_pattern)   { HttpLog.configuration.url_blacklist_pattern }
   let(:url_whitelist_pattern)   { HttpLog.configuration.url_whitelist_pattern }
@@ -54,10 +55,11 @@ describe HttpLog do
       c.log_status            = log_status
       c.color                 = color
       c.prefix                = prefix
+      c.prefix_data_lines     = prefix_data_lines
       c.prefix_response_lines = prefix_response_lines
       c.prefix_line_numbers   = prefix_line_numbers
       c.json_log              = json_log
-      c.graylog               = graylog
+      c.graylog_formatter     = graylog_formatter
       c.compact_log           = compact_log
       c.url_blacklist_pattern = url_blacklist_pattern
       c.url_whitelist_pattern = url_whitelist_pattern
@@ -76,7 +78,9 @@ describe HttpLog do
     ExconAdapter,
     EthonAdapter,
     PatronAdapter,
-    HTTPAdapter
+    HTTPAdapter,
+    RestClientAdapter,
+    TyphoeusAdapter
   ].freeze
 
   ADAPTERS.each do |adapter_class|
@@ -93,6 +97,7 @@ describe HttpLog do
           it_behaves_like 'logs expected response'
           it_behaves_like 'logs status', 200
           it_behaves_like 'logs benchmark'
+          it_behaves_like 'filters password'
 
           it { is_expected.to_not include('Header:') }
           it { is_expected.to_not include("\e[0") }
@@ -116,6 +121,7 @@ describe HttpLog do
 
             if adapter_class.method_defined? :send_head_request
               it "doesn't try to decompress body for HEAD requests" do
+                adapter.send_head_request
                 expect(log).to include('Response:')
               end
             end
@@ -255,6 +261,25 @@ describe HttpLog do
             it { is_expected.to_not include(HttpLog::LOG_PREFIX) }
           end
 
+          context 'with prefix_data_lines enabled' do
+            let(:prefix_data_lines) { true }
+            it { is_expected.to include("[httplog] Data:\n") }
+          end
+
+          unless adapter_class == OpenUriAdapter # Doesn't support response logging
+            context 'with prefix_response_lines enabled' do
+              let(:prefix_response_lines) { true }
+
+              it { is_expected.to include('[httplog] <head>') }
+              it { is_expected.to include('[httplog] <title>Test Page</title>') }
+
+              context 'and blank response' do
+                let(:path) { '/empty.txt' }
+                it { is_expected.to include("[httplog] Response:\n") }
+              end
+            end
+          end
+
           context 'with compact config' do
             let(:compact_log) { true }
             it { is_expected.to match(%r{\[httplog\] GET http://#{host}:#{port}#{path}(\?.*)? completed with status code \d{3} in \d+\.\d{1,6} }) }
@@ -315,7 +340,7 @@ describe HttpLog do
       end
 
       context 'with Graylog config' do
-        let(:graylog) { true }
+        let(:graylog_formatter) { Formatter.new }
         let(:logger) { GelfMock.new @log }
 
         it_behaves_like 'logs JSON', adapter_class, true
@@ -372,7 +397,7 @@ describe HttpLog do
         let(:headers)   { { 'accept' => 'application/json', 'foo' => secret, 'content-type' => 'application/json' } }
         let(:url_masked_body_pattern) { /.*/ }
         let(:data) do
-          '{foo:"my secret","bar":"baz","array":[{"foo":"my secret","bar":"baz"},{"hash":{"foo":"my secret","bar":"baz"}}]}'
+          '{foo:"mysecret","bar":"baz","array":[{"foo":"mysecret","bar":"baz"},{"hash":{"foo":"mysecret","bar":"baz"}}]}'
         end
         let(:filter_parameters) { %w[foo] }
         before { adapter.send_post_request }

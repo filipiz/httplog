@@ -73,7 +73,16 @@ RSpec.shared_examples 'filtered parameters' do
   let(:filter_parameters) { %w(foo) }
 
   it 'masks the filtered value' do
-    # is_expected.to include('foo=[FILTERED]&').or exclude('foo')
+    # is_expected.to match(/foo(:?=|\"=>\"\[FILTERED\])/)
+    is_expected.to_not include('my secret')
+  end
+end
+
+RSpec.shared_examples 'filters password' do
+  let(:data) { "password=secret&foo=bar" }
+
+  it 'masks the filtered value' do
+    is_expected.to include('password=[FILTERED]')
     is_expected.to_not include('secret')
   end
 end
@@ -160,7 +169,7 @@ RSpec.shared_examples 'with masked JSON' do |adapter_class|
     let(:path)      { '/index.json' }
     let(:headers)   { { 'accept' => 'application/json', 'foo' => secret, 'content-type' => 'application/json' } }
     let(:data) do
-      '{"foo":"my secret","bar":"baz","array":[{"foo":"my secret","bar":"baz"},{"hash":{"foo":"my secret","bar":"baz"}}]}'
+      '{"foo":"mysecret","bar":"baz","array":[{"foo":"mysecret","bar":"baz"},{"hash":{"foo":"mysecret","bar":"baz"}}]}'
     end
     let(:filter_parameters) { %w[foo] }
     before { adapter.send_post_request }

@@ -1,17 +1,15 @@
 ## httplog
 
-**VERSION 1.4.0 and 1.4.1 HAVE BEEN YANKED** from rubygems.org due to [this issue](https://github.com/trusche/httplog/issues/89), please update to version 1.4.2. Sorry about that...
-
-[![Gem Version](https://badge.fury.io/rb/httplog.svg)](http://badge.fury.io/rb/httplog) [![Build Status](https://travis-ci.org/trusche/httplog.svg?branch=master)](https://travis-ci.org/trusche/httplog) [![Code Climate](https://codeclimate.com/github/trusche/httplog.svg)](https://codeclimate.com/github/trusche/httplog)
+[![Gem Version](https://badge.fury.io/rb/httplog.svg)](http://badge.fury.io/rb/httplog) [![Build Status](https://travis-ci.com/trusche/httplog.svg?branch=master)](https://travis-ci.org/trusche/httplog) [![Code Climate](https://codeclimate.com/github/trusche/httplog.svg)](https://codeclimate.com/github/trusche/httplog)
 [![Release Version](https://img.shields.io/github/release/trusche/httplog.svg)](https://img.shields.io/github/release/trusche/httplog.svg)
 
 Log outgoing HTTP requests made from your application. Helps with debugging pesky API error responses, or just generally understanding what's going on under the hood.
 
-Requires ruby >= 2.4.
+Requires ruby >= 2.6
 
 This gem works with the following ruby modules and libraries:
 
-* [Net::HTTP](http://www.ruby-doc.org/stdlib-1.9.3/libdoc/net/http/rdoc/index.html)
+* [Net::HTTP](http://www.ruby-doc.org/stdlib-1.9.3/libdoc/net/http/rdoc/index.html) v4+
 * [Ethon](https://github.com/typhoeus/ethon)
 * [Excon](https://github.com/geemus/excon)
 * [OpenURI](http://www.ruby-doc.org/stdlib-1.9.3/libdoc/open-uri/rdoc/index.html)
@@ -78,9 +76,6 @@ HttpLog.configure do |config|
   # You can also log in JSON format
   config.json_log = false
 
-  # For Graylog you can set this to `true`
-  config.graylog = false
-
   # Prettify the output - see below
   config.color = false
 
@@ -96,8 +91,14 @@ HttpLog.configure do |config|
   # to parse JSON responses
   config.json_parser = JSON
 
+  # When using graylog, you can supply a formatter here - see below for details
+  config.graylog_formatter = nil
+
   # Mask the values of sensitive request parameters
   config.filter_parameters = %w[password]
+  
+  # Customize the prefix with a proc or lambda
+  config.prefix = ->{ "[httplog] #{Time.now} " }
 end
 ```
 
@@ -131,19 +132,38 @@ HttpLog.configure do |config|
 end
 ```
 
+For more color options please refer to the [rainbow documentation](https://github.com/sickill/rainbow)
+
+### Graylog logging
+
 If you use Graylog and want to use its search features such as "benchmark:>1 AND method:PUT",
 you can use this configuration:
 
 ```ruby
+FORMATTER = Lograge::Formatters::KeyValue.new
+
 HttpLog.configure do |config|
-  config.logger        = <your GELF::Logger>
-  config.logger_method = :add
-  config.severity      = GELF::Levels::DEBUG
-  config.graylog       = true
+  config.logger            = <your GELF::Logger>
+  config.logger_method     = :add
+  config.severity          = GELF::Levels::DEBUG
+  config.graylog_formatter = FORMATTER
 end
 ```
 
-For more color options please refer to the [rainbow documentation](https://github.com/sickill/rainbow)
+You also can use GELF Graylog format this way:
+
+```ruby
+class Lograge::Formatters::Graylog2HttpLog < Lograge::Formatters::Graylog2
+  def short_message data
+    data[:response_body] = data[:response_body].to_s.byteslice(0, 32_766) unless data[:response_body].blank?
+    "[httplog] [#{data[:response_code]}] #{data[:method]} #{data[:url]}"
+  end
+end
+
+FORMATTER = Lograge::Formatters::Graylog2HttpLog.new
+```
+
+Or define your own class that implements the `call` method
 
 ### Compact logging
 
@@ -242,9 +262,6 @@ a suggestion for a fix, please open an issue or, even better, submit a pull requ
   the TCP connection is not logged (since it's established by libcurl).
 
 * Benchmarking only covers the time between starting the HTTP request and receiving the response. It does *not* cover the time it takes to establish the TCP connection.
-
-* When using [REST Client](https://github.com/rest-client/rest-client), POST requests might be missing the requests
-  data. See #54 for details.
 
 ### Running the specs
 

@@ -5,7 +5,7 @@ module HttpLog
     attr_accessor :enabled,
                   :compact_log,
                   :json_log,
-                  :graylog,
+                  :graylog_formatter,
                   :logger,
                   :logger_method,
                   :severity,
@@ -31,7 +31,7 @@ module HttpLog
       @enabled                 = true
       @compact_log             = false
       @json_log                = false
-      @graylog                 = false
+      @graylog_formatter       = nil
       @logger                  = Logger.new($stdout)
       @logger_method           = :log
       @severity                = Logger::Severity::DEBUG
@@ -50,8 +50,8 @@ module HttpLog
       @prefix_data_lines       = false
       @prefix_response_lines   = false
       @prefix_line_numbers     = false
-      @json_parser             = JSON
-      @filter_parameters       = []
+      @json_parser             = nil
+      @filter_parameters       = %w[password]
     end
   end
 end
